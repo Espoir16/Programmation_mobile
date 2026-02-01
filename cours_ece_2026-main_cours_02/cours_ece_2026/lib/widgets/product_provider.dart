@@ -18,6 +18,7 @@ class ProductProvider extends InheritedWidget {
   }
 
   @override
-  bool updateShouldNotify(ProductProvider oldWidget) =>
-      product != oldWidget.product;
+  bool updateShouldNotify(ProductProvider oldWidget) {
+    return product != oldWidget.product;
+  }
 }
