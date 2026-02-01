@@ -271,3 +271,185 @@ Product generateProduct() => Product(
     salt: Nutriment(unit: 'g', perServing: 0.1, per100g: 0.1),
   ),
 );
+
+
+ProductNutriScore _parseNutriScore(String? v) {
+  switch (v?.toUpperCase()) {
+    case 'A':
+      return ProductNutriScore.A;
+    case 'B':
+      return ProductNutriScore.B;
+    case 'C':
+      return ProductNutriScore.C;
+    case 'D':
+      return ProductNutriScore.D;
+    case 'E':
+      return ProductNutriScore.E;
+    default:
+      return ProductNutriScore.unknown;
+  }
+}
+
+ProductNovaScore _parseNovaScore(dynamic v) {
+  final s = v?.toString();
+  switch (s) {
+    case '1':
+      return ProductNovaScore.group1;
+    case '2':
+      return ProductNovaScore.group2;
+    case '3':
+      return ProductNovaScore.group3;
+    case '4':
+      return ProductNovaScore.group4;
+    default:
+      return ProductNovaScore.unknown;
+  }
+}
+
+ProductGreenScore _parseGreenScore(String? v) {
+  switch (v?.toUpperCase()) {
+    case 'A+':
+      return ProductGreenScore.APlus;
+    case 'A':
+      return ProductGreenScore.A;
+    case 'B':
+      return ProductGreenScore.B;
+    case 'C':
+      return ProductGreenScore.C;
+    case 'D':
+      return ProductGreenScore.D;
+    case 'E':
+      return ProductGreenScore.E;
+    case 'F':
+      return ProductGreenScore.F;
+    default:
+      return ProductGreenScore.unknown;
+  }
+}
+
+List<String>? _splitCsv(String? v) {
+  if (v == null) return null;
+  final list = v
+      .split(',')
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toList();
+  return list.isEmpty ? null : list;
+}
+
+List<String>? _listString(dynamic v) {
+  if (v is List) {
+    final list = v.whereType<String>().toList();
+    return list.isEmpty ? null : list;
+  }
+  return null;
+}
+
+Map<String, String>? _mapStringString(dynamic v) {
+  if (v is Map) {
+    final out = <String, String>{};
+    v.forEach((k, val) {
+      if (k != null && val != null) out[k.toString()] = val.toString();
+    });
+    return out.isEmpty ? null : out;
+  }
+  return null;
+}
+
+NutrientLevels? _parseNutrientLevels(dynamic json) {
+  if (json is! Map) return null;
+  return NutrientLevels(
+    salt: json['salt']?.toString(),
+    saturatedFat: json['saturated-fat']?.toString() ?? json['saturated_fat']?.toString(),
+    sugars: json['sugars']?.toString(),
+    fat: json['fat']?.toString(),
+  );
+}
+
+Nutriment? _parseNutriment(dynamic unit, dynamic perServing, dynamic per100g) {
+  if (unit == null && perServing == null && per100g == null) return null;
+  return Nutriment(
+    unit: unit?.toString() ?? '',
+    perServing: perServing,
+    per100g: per100g,
+  );
+}
+
+NutritionFacts? _parseNutritionFacts(Map<String, dynamic> p) {
+  final serving = p['serving_size']?.toString();
+  final nutriments = p['nutriments'];
+  if (serving == null || nutriments is! Map) return null;
+
+  dynamic n(String key) => nutriments[key];
+  dynamic u(String key) => nutriments['${key}_unit'];
+  dynamic s(String key) => nutriments['${key}_serving'];
+  dynamic g(String key) => nutriments['${key}_100g'];
+
+  return NutritionFacts(
+    servingSize: serving,
+    calories: _parseNutriment(u('energy-kcal'), s('energy-kcal'), g('energy-kcal')),
+    fat: _parseNutriment(u('fat'), s('fat'), g('fat')),
+    saturatedFat: _parseNutriment(u('saturated-fat'), s('saturated-fat'), g('saturated-fat')),
+    carbohydrate: _parseNutriment(u('carbohydrates'), s('carbohydrates'), g('carbohydrates')),
+    sugar: _parseNutriment(u('sugars'), s('sugars'), g('sugars')),
+    fiber: _parseNutriment(u('fiber'), s('fiber'), g('fiber')),
+    proteins: _parseNutriment(u('proteins'), s('proteins'), g('proteins')),
+    sodium: _parseNutriment(u('sodium'), s('sodium'), g('sodium')),
+    salt: _parseNutriment(u('salt'), s('salt'), g('salt')),
+    energy: _parseNutriment(u('energy'), s('energy'), g('energy')),
+  );
+}
+
+List<String>? _parseIngredients(dynamic v) {
+  if (v is List) {
+    final list = v
+        .whereType<Map>()
+        .map((e) => e['text']?.toString())
+        .whereType<String>()
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    return list.isEmpty ? null : list;
+  }
+  return null;
+}
+
+extension ProductJson on Product {
+  static Product fromJson(Map<String, dynamic> json) {
+    final p = (json['product'] is Map<String, dynamic>)
+        ? (json['product'] as Map<String, dynamic>)
+        : json;
+
+    final barcode = (p['code'] ?? p['_id'] ?? p['barcode'] ?? '').toString();
+
+    return Product(
+      barcode: barcode,
+      name: (p['product_name'] ?? p['product_name_fr'] ?? p['generic_name'])?.toString(),
+      altName: p['generic_name']?.toString(),
+      picture: (p['image_url'] ?? p['image_front_url'] ?? p['selected_images']?['front']?['display']?['fr'])?.toString(),
+      quantity: p['quantity']?.toString(),
+      brands: _splitCsv(p['brands']?.toString()),
+      manufacturingCountries: _splitCsv(p['manufacturing_places']?.toString()) ?? _listString(p['countries_tags']),
+      nutriScore: _parseNutriScore(p['nutriscore_grade']?.toString()),
+      novaScore: _parseNovaScore(p['nova_group']),
+      greenScore: _parseGreenScore(p['ecoscore_grade']?.toString()),
+      ingredients: _parseIngredients(p['ingredients']),
+      ingredientsWithAllergens: p['ingredients_text_with_allergens']?.toString(),
+      traces: _listString(p['traces_tags']),
+      allergens: _listString(p['allergens_tags']),
+      additives: _mapStringString(p['additives']),
+      nutrientLevels: _parseNutrientLevels(p['nutrient_levels']),
+      nutritionFacts: _parseNutritionFacts(p),
+      ingredientsFromPalmOil: p['ingredients_from_palm_oil_n'] == null
+          ? null
+          : (p['ingredients_from_palm_oil_n'].toString() != '0'),
+      containsPalmOil: ProductAnalysis.fromString(p['palm_oil']?.toString()),
+      isVegan: ProductAnalysis.fromString(p['ingredients_analysis_tags'] is List
+          ? ((p['ingredients_analysis_tags'] as List).contains('en:vegan') ? 'yes' : 'maybe')
+          : null),
+      isVegetarian: ProductAnalysis.fromString(p['ingredients_analysis_tags'] is List
+          ? ((p['ingredients_analysis_tags'] as List).contains('en:vegetarian') ? 'yes' : 'maybe')
+          : null),
+    );
+  }
+}
