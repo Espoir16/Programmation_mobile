@@ -1,72 +1,94 @@
 import 'package:flutter/material.dart';
 import 'package:formation_flutter/l10n/app_localizations.dart';
 import 'package:formation_flutter/model/product.dart';
+import 'package:formation_flutter/notifiers/product_notifier.dart';
 import 'package:formation_flutter/res/app_colors.dart';
 import 'package:formation_flutter/res/app_icons.dart';
 import 'package:formation_flutter/res/app_theme_extension.dart';
+import 'package:provider/provider.dart';
 
 class ProductPage extends StatelessWidget {
   const ProductPage({super.key});
 
-  static const double IMAGE_HEIGHT = 300.0;
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => ProductNotifier()..loadProduct(),
+      child: Consumer<ProductNotifier>(
+        builder: (context, notifier, _) {
+          final product = notifier.product;
+
+          return Scaffold(
+            body: product == null
+                ? const ProductLoadingView()
+                : ProductContentView(product: product),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class ProductLoadingView extends StatelessWidget {
+  const ProductLoadingView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SizedBox.expand(
-        child: Stack(
-          children: [
-            PositionedDirectional(
-              top: 0.0,
-              start: 0.0,
-              end: 0.0,
-              height: IMAGE_HEIGHT,
-              child: Image.network(
-                'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?q=80&w=1310&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-                fit: BoxFit.cover,
-                cacheHeight:
-                    (IMAGE_HEIGHT * MediaQuery.devicePixelRatioOf(context))
-                        .toInt(),
-              ),
-            ),
-            PositionedDirectional(
-              top: IMAGE_HEIGHT - 16.0,
-              start: 0.0,
-              end: 0.0,
-              bottom: 0.0,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(16.0),
+    return const Center(child: CircularProgressIndicator());
+  }
+}
+
+class ProductContentView extends StatelessWidget {
+  const ProductContentView({super.key, required this.product});
+  final Product product;
+
+  static const double imageHeight = 300.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: ListView(
+        children: [
+          SizedBox(
+            height: imageHeight,
+            child: (product.picture == null || product.picture!.isEmpty)
+                ? const SizedBox.shrink()
+                : Image.network(
+                    product.picture!,
+                    fit: BoxFit.cover,
+                    cacheHeight:
+                        (imageHeight * MediaQuery.devicePixelRatioOf(context))
+                            .toInt(),
                   ),
-                  color: Colors.white,
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(product.name ?? 'Produit', style: context.theme.title1),
+                const SizedBox(height: 6),
+                Text(
+                  (product.brands == null || product.brands!.isEmpty)
+                      ? 'Marque inconnue'
+                      : product.brands!.join(', '),
+                  style: context.theme.title2,
                 ),
-                padding: EdgeInsetsDirectional.symmetric(
-                  horizontal: 20.0,
-                  vertical: 30.0,
-                ),
-                child: Column(
-                  crossAxisAlignment: .start,
-                  children: [
-                    Text(
-                      'Petits pois et carottes',
-                      style: context.theme.title1,
-                    ),
-                    Text('Cassegrain', style: context.theme.title2),
-                    Scores(),
-                  ],
-                ),
-              ),
+                const SizedBox(height: 16),
+                Scores(product: product),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
 class Scores extends StatelessWidget {
-  const Scores({super.key});
+  const Scores({super.key, required this.product});
+  final Product product;
 
   @override
   Widget build(BuildContext context) {
@@ -74,26 +96,33 @@ class Scores extends StatelessWidget {
       children: [
         IntrinsicHeight(
           child: Row(
-            crossAxisAlignment: .start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 flex: 44,
-                child: _Nutriscore(nutriscore: ProductNutriScore.B),
+                child: _Nutriscore(
+                  nutriscore: product.nutriScore ?? ProductNutriScore.unknown,
+                ),
               ),
-              VerticalDivider(),
+              const VerticalDivider(),
               Expanded(
                 flex: 56,
-                child: _NovaGroup(novaScore: ProductNovaScore.group4),
+                child: _NovaGroup(
+                  novaScore: product.novaScore ?? ProductNovaScore.unknown,
+                ),
               ),
             ],
           ),
         ),
-        Divider(),
-        _GreenScore(greenScore: ProductGreenScore.A),
+        const Divider(),
+        _GreenScore(
+          greenScore: product.greenScore ?? ProductGreenScore.unknown,
+        ),
       ],
     );
   }
 }
+
 
 class _Nutriscore extends StatelessWidget {
   const _Nutriscore({required this.nutriscore});
@@ -123,7 +152,7 @@ class _Nutriscore extends StatelessWidget {
       ProductNutriScore.C => 'res/drawables/nutriscore_c.png',
       ProductNutriScore.D => 'res/drawables/nutriscore_d.png',
       ProductNutriScore.E => 'res/drawables/nutriscore_e.png',
-      ProductNutriScore.unknown => 'TODO',
+      ProductNutriScore.unknown => 'res/drawables/nutriscore_e.png', // fallback
     };
   }
 }
